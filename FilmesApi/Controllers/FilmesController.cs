@@ -1,7 +1,10 @@
-﻿using FilmesAPI.Models;
+﻿using System.Collections.Generic;
+using FilmesAPI.Models;
 using Microsoft.AspNetCore.Mvc;
 using System.Linq;
+using AutoMapper;
 using FilmesApi.Data;
+using FilmesApi.Data.DTOs;
 
 namespace FilmesApi.Controllers
 {
@@ -10,15 +13,18 @@ namespace FilmesApi.Controllers
     public class FilmesController : ControllerBase
     {
         private readonly FilmeContext _context;
+        private readonly IMapper _mapper;
 
-        public FilmesController(FilmeContext filmeContext)
+        public FilmesController(FilmeContext filmeContext, IMapper mapper)
         {
             _context = filmeContext;
+            _mapper = mapper;
         }
 
         [HttpPost]
-        public IActionResult AdicionaFilme([FromBody] Filme filme)
+        public IActionResult AdicionaFilme([FromBody] FilmeRequest filmeRequest)
         {
+            var filme = _mapper.Map<FilmeRequest, Filme>(filmeRequest);
             _context.Add(filme);
             _context.SaveChanges();
             return CreatedAtAction(nameof(RecuperaFilmesPorId), new { Id = filme.Id }, filme);
@@ -27,7 +33,9 @@ namespace FilmesApi.Controllers
         [HttpGet]
         public IActionResult RecuperaFilmes()
         {
-            return Ok(_context.Filmes);
+            var filmesDb = _context.Filmes.ToList();
+            var filmes = _mapper.Map<IEnumerable<FilmeResponse>>(filmesDb);
+            return Ok(filmes);
         }
 
         [HttpGet("{id:int}")]
@@ -36,6 +44,7 @@ namespace FilmesApi.Controllers
             var filme = _context.Filmes.FirstOrDefault(filme => filme.Id == id);
             if(filme != null)
             {
+                var filmeResponse = _mapper.Map<FilmeResponse>(filme);
                 return Ok(filme);
             }
             return NotFound();
@@ -43,20 +52,16 @@ namespace FilmesApi.Controllers
         
         [HttpPut("{id:int}")]
 
-        public IActionResult AlteraFilmePorId(int id, [FromBody] Filme filme)
+        public IActionResult AlteraFilmePorId(int id, [FromBody] FilmeRequest filmeRequest)
         {
-            var filmeDb = _context.Filmes.FirstOrDefault(filme => filme.Id == id);
+            var filme = _context.Filmes.FirstOrDefault(filme => filme.Id == id);
 
-            if (filmeDb == null)
+            if (filme == null)
             {
                 return NotFound();
             }
 
-            filmeDb.Diretor = filme.Diretor;
-            filmeDb.Duracao = filme.Duracao;
-            filmeDb.Genero = filme.Genero;
-            filmeDb.Titulo = filme.Titulo;
-
+            _mapper.Map(filmeRequest, filme);
             _context.SaveChanges();
             
             return NoContent();
